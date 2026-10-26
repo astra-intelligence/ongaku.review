@@ -1,0 +1,55 @@
+{
+  "name": "ongaku-review",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ongaku.review のドキュメント",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint:docs": "npm run lint:markdown && npm run lint:text && npm run lint:links",
+    "lint:markdown": "markdownlint-cli2",
+    "lint:text": "textlint \"**/*.md\"",
+    "lint:links": "remark --no-config --no-stdout --use remark-validate-links=repository:false --frail --quiet \".agents/skills/**/*.md\" \".github/**/*.md\"",
+    "lint:markdown:fix": "markdownlint-cli2 --fix",
+    "lint": "npm run lint:docs",
+    "build": "vp build",
+    "check": "vp check src e2e vite.config.ts playwright.config.ts svelte.config.js && svelte-check --tsconfig ./tsconfig.json",
+    "preview": "vp preview --host 127.0.0.1",
+    "dev": "vp dev --host 127.0.0.1",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "format": "vp fmt src e2e vite.config.ts playwright.config.ts svelte.config.js"
+  },
+  "devDependencies": {
+    "@ox-content/islands": "^3.4.0",
+    "@ox-content/vite-plugin": "^3.4.0",
+    "@ox-content/vite-plugin-svelte": "^3.4.0",
+    "@playwright/test": "^1.64.1",
+    "@rsvelte/vite-plugin-svelte": "^0.5.3",
+    "@types/node": "^24.13.6",
+    "markdownlint-cli2": "^0.24.0",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-frontmatter": "2.0.1",
+    "micromark-extension-frontmatter": "2.0.0",
+    "remark-cli": "^12.0.1",
+    "remark-validate-links": "^13.1.0",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.7",
+    "textlint": "^15.8.0",
+    "textlint-rule-preset-ai-words-ja": "^1.2.1",
+    "typescript": "^6.0.3",
+    "vite-plus": "^1.4.0",
+    "yaml": "^2.9.1"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "satori": {
+      "fflate@0.7.3": "0.7.5"
+    }
+  },
+  "packageManager": "npm@11.19.1"
+}

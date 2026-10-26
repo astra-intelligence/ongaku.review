@@ -1,0 +1,4 @@
+interface:
+  display_name: "Creating Pull Requests"
+  short_description: "PRの本文・ラベル・担当者を整え、Draft作成と反映確認を行う"
+  default_prompt: "Use $creating-pull-requests to create a draft pull request for the current changes."

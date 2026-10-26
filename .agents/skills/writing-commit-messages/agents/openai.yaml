@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit Messages"
+  short_description: "Gitコミットメッセージを変更内容に合うprefix付きの規約に整える"
+  default_prompt: "Use $writing-commit-messages to draft a commit message for the current changes."
