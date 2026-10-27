@@ -1,12 +1,15 @@
 <script lang="ts">
   import { icons } from "../config/icons";
-  import { searchPath, site } from "../config/site";
+  import { site } from "../config/site";
+  import { tagRoutePath } from "../utils/search-path";
   import type { PageData } from "./page-data";
 
   let { page }: { page: PageData } = $props();
 
-  // Posts and later list pages belong to Home, so Home stays highlighted there.
-  const sectionPath = $derived(page.kind === "home" || page.isPost ? "/" : page.path);
+  // Posts, tag pages, and later list pages belong to Home.
+  const sectionPath = $derived(
+    page.kind === "home" || page.kind === "tag" || page.isPost ? "/" : page.path,
+  );
   // Reserve the missing rows outside the list frame so pagination stays in place.
   const emptyRowCount = $derived(
     page.kind === "home" && page.pagination
@@ -14,6 +17,10 @@
       : 0,
   );
   const formatDate = (date: string) => date.replaceAll("-", "/");
+  const shareUrl = $derived(
+    "https://x.com/intent/post?" +
+      new URLSearchParams({ text: page.title, url: site.url + page.path }).toString(),
+  );
 </script>
 
 <a class="skip-link" href="#main">本文へスキップ</a>
@@ -53,6 +60,12 @@
             </a>
           </li>
         {/each}
+        <li>
+          <button type="button" aria-haspopup="dialog" aria-controls="search-window" data-search-open>
+            <img src={icons.magnifier} alt="" width="32" height="32" />
+            <span>Search</span>
+          </button>
+        </li>
       </ul>
     </nav>
   </header>
@@ -81,11 +94,16 @@
     </nav>
 
     <main id="main">
-      {#if page.kind === "home"}
+      {#if page.kind === "tag"}
+        <h1 class="visually-hidden">{page.title}</h1>
+      {/if}
+      {#if page.kind === "home" || page.kind === "tag"}
         <div class="list-area">
           <div class="pane">
             <table class="file-table">
-              <caption class="visually-hidden">記事一覧</caption>
+              <caption class="visually-hidden">
+                {page.kind === "tag" ? `タグ「#${page.tag}」の記事` : "記事一覧"}
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">名前</th>
@@ -149,24 +167,6 @@
             </ul>
           </nav>
         {/if}
-      {:else if page.kind === "search"}
-        <div class="pane">
-          <h1 class="pane-title">{page.title}</h1>
-          <form class="search-form" action={searchPath} method="get" role="search" data-search-form>
-            <label for="search-query">キーワード</label>
-            <div class="search-field">
-              <input id="search-query" name="q" type="search" autocomplete="off" />
-              <button class="xp-button" type="submit">検索</button>
-            </div>
-          </form>
-          <noscript><p class="search-status">検索するにはJavaScriptを有効にしてください。</p></noscript>
-          <p class="search-status" role="status" data-search-status></p>
-          <ul
-            class="file-list"
-            data-search-results
-            data-search-pages={JSON.stringify(page.searchPages ?? {})}
-          ></ul>
-        </div>
       {:else if page.kind === "404"}
         <section class="pane not-found">
           <span class="error-number">404</span>
@@ -176,24 +176,90 @@
       {:else}
         <article class="pane document">
           <header class="document-header">
-            <h1>{page.title}</h1>
-            {#if page.created}
-              <p class="document-date">
-                <span class="document-date-label">作成日時</span>
-                <time datetime={page.created}>{formatDate(page.created)}</time>
-              </p>
+            {#if page.thumbnail}
+              <figure class="document-thumbnail">
+                <img src={page.thumbnail.src} alt={page.thumbnail.alt} width="1200" height="630" />
+              </figure>
             {/if}
-            {#if page.updated}
-              <p class="document-date">
-                <span class="document-date-label">更新日時</span>
-                <time datetime={page.updated}>{formatDate(page.updated)}</time>
-              </p>
+            <h1>{page.title}</h1>
+            {#snippet dates()}
+              {#if page.created}
+                <p class="document-date">
+                  <span class="document-date-label">作成日時</span>
+                  <time datetime={page.created}>{formatDate(page.created)}</time>
+                </p>
+              {/if}
+              {#if page.updated}
+                <p class="document-date">
+                  <span class="document-date-label">更新日時</span>
+                  <time datetime={page.updated}>{formatDate(page.updated)}</time>
+                </p>
+              {/if}
+            {/snippet}
+            {#if page.isPost}
+              <div class="document-byline">
+                <img src={icons[page.icon ?? "document"]} alt="" width="32" height="32" />
+                <div class="document-byline-text">
+                  <p class="document-author">{page.author}</p>
+                  <div class="document-dates">{@render dates()}</div>
+                </div>
+              </div>
+            {:else}
+              {@render dates()}
             {/if}
           </header>
           <div class="prose">
             {@html page.body ?? ""}
           </div>
+          {#if page.isPost}
+            <footer class="document-footer">
+              {#if page.tags?.length}
+                <ul class="document-tags" aria-label="タグ">
+                  {#each page.tags as tag (tag)}
+                    <li><a href={tagRoutePath(tag)}>#{tag}</a></li>
+                  {/each}
+                </ul>
+              {/if}
+              <a
+                class="xp-button share-button"
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Xでポスト"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    fill="#000"
+                    d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                  />
+                </svg>
+                <span>ポスト</span>
+              </a>
+            </footer>
+          {/if}
         </article>
+        {#if page.adjacent && (page.adjacent.previous || page.adjacent.next)}
+          <nav class="adjacent-posts" aria-label="前後の記事">
+            {#if page.adjacent.previous}
+              <a class="adjacent-link adjacent-previous" href={page.adjacent.previous.path} rel="prev">
+                <span class="adjacent-label">&lt; 前の記事</span>
+                <span class="adjacent-title">
+                  <img src={icons[page.adjacent.previous.icon]} alt="" width="24" height="24" />
+                  <span>{page.adjacent.previous.title}</span>
+                </span>
+              </a>
+            {/if}
+            {#if page.adjacent.next}
+              <a class="adjacent-link adjacent-next" href={page.adjacent.next.path} rel="next">
+                <span class="adjacent-label">次の記事 &gt;</span>
+                <span class="adjacent-title">
+                  <img src={icons[page.adjacent.next.icon]} alt="" width="24" height="24" />
+                  <span>{page.adjacent.next.title}</span>
+                </span>
+              </a>
+            {/if}
+          </nav>
+        {/if}
       {/if}
     </main>
 
@@ -202,3 +268,30 @@
     </footer>
   </div>
 </div>
+<dialog
+  class="search-window"
+  id="search-window"
+  aria-labelledby="search-window-title"
+  data-search-window
+>
+  <div class="search-window-frame">
+    <div class="title-bar">
+      <img class="title-bar-icon" src={icons.magnifier} alt="" width="16" height="16" />
+      <h2 class="title-bar-text" id="search-window-title">検索</h2>
+      <button class="search-window-close" type="button" aria-label="閉じる" data-search-close>
+        <span class="title-bar-button title-bar-close"></span>
+      </button>
+    </div>
+    <div class="search-window-body">
+      <form class="search-form" role="search" data-search-form>
+        <label for="search-query">キーワード</label>
+        <div class="search-field">
+          <input id="search-query" name="q" type="search" autocomplete="off" />
+          <button class="xp-button" type="submit">検索</button>
+        </div>
+      </form>
+      <p class="search-status" role="status" data-search-status></p>
+      <ul class="file-list search-results" data-search-results></ul>
+    </div>
+  </div>
+</dialog>

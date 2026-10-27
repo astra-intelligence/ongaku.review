@@ -12,8 +12,14 @@ export interface PostSummary {
   icon: PostIcon;
 }
 
-export interface SearchPage {
+export interface Thumbnail {
+  src: string;
+  alt: string;
+}
+
+export interface AdjacentPost {
   path: string;
+  title: string;
   icon: PostIcon;
 }
 
@@ -25,7 +31,7 @@ export interface Pagination {
 }
 
 export interface PageData {
-  kind: "home" | "page" | "search" | "404";
+  kind: "home" | "tag" | "page" | "404";
   path: string;
   title: string;
   description: string;
@@ -34,7 +40,13 @@ export interface PageData {
   created?: string;
   updated?: string;
   isPost?: boolean;
+  icon?: PostIcon;
+  author?: string;
+  thumbnail?: Thumbnail;
+  tags?: string[];
+  /** `previous` is the older post and `next` the newer one. */
+  adjacent?: { previous?: AdjacentPost; next?: AdjacentPost };
   posts?: PostSummary[];
+  tag?: string;
   pagination?: Pagination;
-  searchPages?: Record<string, SearchPage>;
 }
