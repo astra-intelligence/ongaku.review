@@ -1,9 +1,4 @@
----
-title: 技術スタック
-description: ongaku.review で採用している技術の一覧
-date: 2026-10-26
-icon: document
----
+# 技術スタック
 
 | 領域           | 採用している技術                                     |
 | -------------- | ---------------------------------------------------- |
@@ -11,6 +6,7 @@ icon: document
 | パッケージ管理 | npm                                                  |
 | ビルドツール   | Vite+ (Vite / Rolldown)                              |
 | UI             | Svelte / TypeScript                                  |
+| アイコン       | FamFamFam Silk as SVG (CC BY 4.0)                    |
 | コンテンツ     | Markdown / MDX (ox-content)                          |
 | 配信           | 静的 HTML (MPA) / Cloudflare Pages                   |
 | E2E テスト     | Playwright                                           |
