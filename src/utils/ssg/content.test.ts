@@ -169,6 +169,18 @@ describe("description", () => {
     );
   });
 
+  it("アクセント付きのラテン文字も折り返しで区切る", async () => {
+    expect(await describeFirst("café\nhouse")).toBe("café house");
+  });
+
+  it("MarkdownのHTMLコメントと自動リンクを解析できる", async () => {
+    const root = await createRoot({
+      "first.md": article("<!-- コメント -->\n\n<https://example.com> の記事です。"),
+    });
+
+    expect((await loadDocs(root))[0]?.description).toBe("https://example.com の記事です。");
+  });
+
   it("英文の句点で折り返した段落は空白を空ける", async () => {
     expect(await describeFirst("Done.\nNext line starts here.")).toBe(
       "Done. Next line starts here.",

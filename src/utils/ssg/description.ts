@@ -14,7 +14,8 @@ interface TextRun {
   wrapped: boolean;
 }
 
-const isWordCharacter = (character: string) => /[A-Za-z0-9]/.test(character);
+const isWordCharacter = (character: string) =>
+  /[\p{Script_Extensions=Latin}\p{Number}]/u.test(character);
 const isEnglishPunctuation = (character: string) => /[.!?,;:]/.test(character);
 /** MDX adds import, JSX, and expression nodes that never belong in prose. */
 const isMdx = (type: string) => type.startsWith("mdx");
@@ -113,13 +114,23 @@ function truncate(text: string): string {
  * Builds an article's description from the first paragraph of its body, so
  * writers never maintain one by hand. Frontmatter, MDX imports, and JSX are
  * skipped, and a paragraph wins over a leading heading, which would only repeat
- * the title.
+ * the title. Only an MDX article is parsed as MDX, because MDX rejects Markdown
+ * that `.md` files may hold, such as HTML comments and `<https://example.com>`
+ * autolinks.
  */
-export function articleDescription(source: string): string {
-  const tree = fromMarkdown(source, {
-    extensions: [frontmatter(["yaml"]), mdxjs()],
-    mdastExtensions: [frontmatterFromMarkdown(["yaml"]), mdxFromMarkdown()],
-  });
+export function articleDescription(source: string, mdx = false): string {
+  const tree = fromMarkdown(
+    source,
+    mdx
+      ? {
+          extensions: [frontmatter(["yaml"]), mdxjs()],
+          mdastExtensions: [frontmatterFromMarkdown(["yaml"]), mdxFromMarkdown()],
+        }
+      : {
+          extensions: [frontmatter(["yaml"])],
+          mdastExtensions: [frontmatterFromMarkdown(["yaml"])],
+        },
+  );
   const text = firstText(tree.children, paragraphText) || firstText(tree.children, blockText);
   return truncate(text.replace(/\s+/g, " ").trim());
 }
