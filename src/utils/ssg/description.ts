@@ -3,7 +3,7 @@ import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { mdxFromMarkdown } from "mdast-util-mdx";
 import { frontmatter } from "micromark-extension-frontmatter";
 import { mdxjs } from "micromark-extension-mdxjs";
-import type { PhrasingContent, RootContent } from "mdast";
+import type { PhrasingContent, Root, RootContent } from "mdast";
 
 /** Longest article description and user description, counted in code points. */
 export const descriptionLimit = 140;
@@ -17,8 +17,11 @@ interface TextRun {
 const isWordCharacter = (character: string) =>
   /[\p{Script_Extensions=Latin}\p{Number}]/u.test(character);
 const isEnglishPunctuation = (character: string) => /[.!?,;:]/.test(character);
-/** MDX adds import, JSX, and expression nodes that never belong in prose. */
-const isMdx = (type: string) => type.startsWith("mdx");
+/**
+ * MDX adds import, JSX, and expression nodes that never belong in prose, and the
+ * plain Markdown fallback reads JSX and HTML blocks as `html` nodes.
+ */
+const isNonProse = (type: string) => type.startsWith("mdx") || type === "html";
 
 /**
  * Appends plain text. A wrapped line joins Latin words with a space and
@@ -48,7 +51,7 @@ function write(run: TextRun, value: string): void {
 /** Emphasis, links, and images contribute their text so syntax never reaches the description. */
 function writeInline(children: readonly PhrasingContent[], run: TextRun): void {
   for (const child of children) {
-    if (isMdx(child.type)) continue;
+    if (isNonProse(child.type)) continue;
     if (child.type === "text") write(run, child.value);
     else if (child.type === "inlineCode") write(run, child.value);
     else if (child.type === "image" || child.type === "imageReference") write(run, child.alt ?? "");
@@ -65,7 +68,7 @@ function textOfInline(children: readonly PhrasingContent[]): string {
 
 /** The first paragraph inside a block, so a list or a quote still yields prose. */
 function paragraphText(node: RootContent): string | undefined {
-  if (isMdx(node.type)) return undefined;
+  if (isNonProse(node.type)) return undefined;
   if (node.type === "paragraph") return textOfInline(node.children);
   if (node.type === "blockquote" || node.type === "list" || node.type === "listItem")
     for (const child of node.children) {
@@ -77,7 +80,7 @@ function paragraphText(node: RootContent): string | undefined {
 
 /** Fallback for an article with no paragraph, such as one that is only a heading. */
 function blockText(node: RootContent): string {
-  if (isMdx(node.type)) return "";
+  if (isNonProse(node.type)) return "";
   if (node.type === "paragraph" || node.type === "heading") return textOfInline(node.children);
   if (node.type === "blockquote" || node.type === "list" || node.type === "listItem")
     for (const child of node.children) {
@@ -92,7 +95,7 @@ function firstText(
   text: (node: RootContent) => string | undefined,
 ): string {
   for (const node of nodes) {
-    if (isMdx(node.type)) continue;
+    if (isNonProse(node.type)) continue;
     const value = text(node);
     if (value?.trim()) return value;
   }
@@ -111,26 +114,43 @@ function truncate(text: string): string {
 }
 
 /**
+ * Strict MDX rejects the HTML comments and autolinks that the site itself
+ * renders, so an unparsable article falls back to plain Markdown, where those
+ * constructs are ordinary prose, instead of failing the whole build.
+ */
+function parse(source: string): { tree: Root; lenient: boolean } {
+  try {
+    return {
+      tree: fromMarkdown(source, {
+        extensions: [frontmatter(["yaml"]), mdxjs()],
+        mdastExtensions: [frontmatterFromMarkdown(["yaml"]), mdxFromMarkdown()],
+      }),
+      lenient: false,
+    };
+  } catch {
+    return {
+      tree: fromMarkdown(source, {
+        extensions: [frontmatter(["yaml"])],
+        mdastExtensions: [frontmatterFromMarkdown(["yaml"])],
+      }),
+      lenient: true,
+    };
+  }
+}
+
+/** A plain Markdown parse reads an MDX import or export as an ordinary paragraph. */
+const isEsmParagraph = (node: RootContent): boolean =>
+  node.type === "paragraph" && /^(import|export)\s/.test(textOfInline(node.children));
+
+/**
  * Builds an article's description from the first paragraph of its body, so
  * writers never maintain one by hand. Frontmatter, MDX imports, and JSX are
  * skipped, and a paragraph wins over a leading heading, which would only repeat
- * the title. Only an MDX article is parsed as MDX, because MDX rejects Markdown
- * that `.md` files may hold, such as HTML comments and `<https://example.com>`
- * autolinks.
+ * the title.
  */
-export function articleDescription(source: string, mdx = false): string {
-  const tree = fromMarkdown(
-    source,
-    mdx
-      ? {
-          extensions: [frontmatter(["yaml"]), mdxjs()],
-          mdastExtensions: [frontmatterFromMarkdown(["yaml"]), mdxFromMarkdown()],
-        }
-      : {
-          extensions: [frontmatter(["yaml"])],
-          mdastExtensions: [frontmatterFromMarkdown(["yaml"])],
-        },
-  );
-  const text = firstText(tree.children, paragraphText) || firstText(tree.children, blockText);
+export function articleDescription(source: string): string {
+  const { tree, lenient } = parse(source);
+  const nodes = lenient ? tree.children.filter((node) => !isEsmParagraph(node)) : tree.children;
+  const text = firstText(nodes, paragraphText) || firstText(nodes, blockText);
   return truncate(text.replace(/\s+/g, " ").trim());
 }

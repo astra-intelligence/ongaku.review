@@ -169,8 +169,9 @@ describe("description", () => {
     );
   });
 
-  it("アクセント付きのラテン文字も折り返しで区切る", async () => {
+  it("アクセント付きや全角のラテン文字も折り返しで区切る", async () => {
     expect(await describeFirst("café\nhouse")).toBe("café house");
+    expect(await describeFirst("ＡＢ\nＣＤ")).toBe("ＡＢ ＣＤ");
   });
 
   it("MarkdownのHTMLコメントと自動リンクを解析できる", async () => {
@@ -179,6 +180,38 @@ describe("description", () => {
     });
 
     expect((await loadDocs(root))[0]?.description).toBe("https://example.com の記事です。");
+  });
+
+  it("MDXのHTMLコメントと自動リンクも解析できる", async () => {
+    const root = await createRoot({
+      "first.mdx": `---
+title: 記事
+---
+
+<!-- コメント -->
+
+<https://example.com> の記事です。
+`,
+    });
+
+    expect((await loadDocs(root))[0]?.description).toBe("https://example.com の記事です。");
+  });
+
+  it("HTMLコメントとimportが同居する記事の説明にimportを含めない", async () => {
+    const root = await createRoot({
+      "first.mdx": `---
+title: 記事
+---
+
+import Cover from "./Cover.svelte"
+
+<!-- コメント -->
+
+本文の説明です。
+`,
+    });
+
+    expect((await loadDocs(root))[0]?.description).toBe("本文の説明です。");
   });
 
   it("英文の句点で折り返した段落は空白を空ける", async () => {

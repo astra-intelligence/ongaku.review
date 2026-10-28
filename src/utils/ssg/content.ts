@@ -308,7 +308,7 @@ export async function loadDocs(root: string): Promise<DocPage[]> {
         : (firstHeading(source) ?? path.basename(relativePath).replace(/\.mdx?$/i, ""));
     if ([...title].length > titleLimit)
       throw new Error(`${file}: title は${titleLimit}文字以内で指定してください`);
-    const description = articleDescription(source, /\.mdx$/i.test(relativePath));
+    const description = articleDescription(source);
     const created = readDate(frontmatter.created, file, "created");
     const pagePath = routePath(relativePath);
     pages.push({
