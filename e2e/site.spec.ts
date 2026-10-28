@@ -398,7 +398,15 @@ test.describe("記事ページの構成", () => {
     expect(new URL(ogImage!).pathname).toBe(await image.getAttribute("src"));
     await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
       "content",
-      "青一色の確認用画像",
+      "ページ送り確認用の記事 1",
+    );
+    await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute(
+      "content",
+      "1200",
+    );
+    await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute(
+      "content",
+      "630",
     );
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
       "content",
@@ -406,10 +414,37 @@ test.describe("記事ページの構成", () => {
     );
   });
 
-  test("見出し画像のない記事はsummaryカードのままにする", async ({ page }) => {
+  test("記事ページはarticle型のOGPメタを出力する", async ({ page }) => {
+    await page.goto("/posts/pagination-check-01");
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
+    await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "ja_JP");
+    await expect(page.locator('meta[property="article:published_time"]')).toHaveAttribute(
+      "content",
+      "2026-10-05T00:00:00+09:00",
+    );
+    await expect(page.locator('meta[property="article:modified_time"]')).toHaveAttribute(
+      "content",
+      "2026-10-05T00:00:00+09:00",
+    );
+  });
+
+  test("見出し画像のない記事はsummaryカード＋サイトアイコンで出力する", async ({ page }) => {
     await page.goto("/posts/abbey-road");
     await expect(page.locator(".document-thumbnail")).toHaveCount(0);
-    await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      "content",
+      "https://ongaku.review/icon-512.png",
+    );
+    await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
+      "content",
+      "ongaku.review",
+    );
+    await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute("content", "512");
+    await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute(
+      "content",
+      "512",
+    );
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary");
   });
 

@@ -14,24 +14,19 @@ import { site } from "../../config/site";
 import type { AdjacentPost, PageData, Pagination } from "../../pages/page-data";
 import { normalizeTag, tagRoutePath } from "../search-path";
 import { listPosts, loadAboutPage, loadDocs, type DocPage } from "./content";
+import { readImageSize } from "./image-size";
+import { escapeHtml, renderMetaTags } from "./meta";
 import { preserveFullWidthSpaces } from "./whitespace";
 
 const components = (root: string) => ({
   SiteStatus: root + "/src/components/SiteStatus.svelte",
 });
 
-const escapeHtml = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[character]!,
-  );
+/** Created by #9; non-article pages and articles without a thumbnail use it. */
+const siteIconPath = "/icon-512.png";
+
+/** YYYY-MM-DD front-matter dates are midnight JST in the card metadata. */
+const toJstIso8601 = (date: string) => `${date}T00:00:00+09:00`;
 
 const notFoundPage: PageData = {
   kind: "404",
@@ -227,6 +222,40 @@ async function renderPage(
       JSON.stringify(structuredData).replace(/</g, "\\u003c") +
       "</script>"
     : "";
+  const socialImage = page.thumbnail
+    ? await (async () => {
+        const sourceThumbnail = source?.thumbnail;
+        const size = sourceThumbnail ? await readImageSize(sourceThumbnail.sourcePath) : undefined;
+        return {
+          url: new URL(page.thumbnail!.src, site.url).href,
+          width: size?.width,
+          height: size?.height,
+          type: size?.type,
+          alt: page.title,
+        };
+      })()
+    : {
+        url: new URL(siteIconPath, site.url).href,
+        width: 512,
+        height: 512,
+        type: "image/png",
+        alt: site.name,
+      };
+  const metaTags = renderMetaTags({
+    title,
+    description: page.description,
+    canonical,
+    ogType: page.isPost ? "article" : "website",
+    card: page.thumbnail ? "summary_large_image" : "summary",
+    image: socialImage,
+    article: page.isPost
+      ? {
+          publishedTime: page.created ? toJstIso8601(page.created) : undefined,
+          modifiedTime: page.updated ? toJstIso8601(page.updated) : undefined,
+          tags: page.tags ?? [],
+        }
+      : undefined,
+  });
   let html =
     '<!doctype html><html lang="ja"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -246,34 +275,7 @@ async function renderPage(
     '<link rel="alternate" type="application/rss+xml" title="' +
     escapeHtml(site.title) +
     '" href="/feed.xml">' +
-    '<meta property="og:site_name" content="' +
-    escapeHtml(site.title) +
-    '">' +
-    '<meta property="og:title" content="' +
-    escapeHtml(title) +
-    '">' +
-    '<meta property="og:description" content="' +
-    escapeHtml(page.description) +
-    '">' +
-    '<meta property="og:url" content="' +
-    escapeHtml(canonical) +
-    '">' +
-    '<meta property="og:type" content="website">' +
-    (page.thumbnail
-      ? '<meta property="og:image" content="' +
-        escapeHtml(new URL(page.thumbnail.src, site.url).href) +
-        '">' +
-        (page.thumbnail.alt
-          ? '<meta property="og:image:alt" content="' + escapeHtml(page.thumbnail.alt) + '">'
-          : "") +
-        '<meta name="twitter:card" content="summary_large_image">'
-      : '<meta name="twitter:card" content="summary">') +
-    '<meta name="twitter:title" content="' +
-    escapeHtml(title) +
-    '">' +
-    '<meta name="twitter:description" content="' +
-    escapeHtml(page.description) +
-    '">' +
+    metaTags +
     robots +
     jsonLd +
     rendered.head +
