@@ -100,6 +100,15 @@ describe("title", () => {
     );
   });
 
+  it("ファイル名から作ったtitleも100文字を超えると拒否する", async () => {
+    const name = "a".repeat(101) + ".md";
+    const root = await createRoot({ [name]: "---\ncreated: 2026-10-01\n---\n\n本文です。\n" });
+
+    await expect(loadDocs(root)).rejects.toThrow(
+      `src/content/posts/${name}: title は100文字以内で指定してください`,
+    );
+  });
+
   it("本文の見出しから作ったtitleも100文字を超えると拒否する", async () => {
     const root = await createRoot({
       "long.md": `---
@@ -158,6 +167,29 @@ describe("description", () => {
     expect(await describeFirst("学生の頃は\n「Here Comes the\nSun」ばかり聴いていました。")).toBe(
       "学生の頃は「Here Comes the Sun」ばかり聴いていました。",
     );
+  });
+
+  it("英文の句点で折り返した段落は空白を空ける", async () => {
+    expect(await describeFirst("Done.\nNext line starts here.")).toBe(
+      "Done. Next line starts here.",
+    );
+  });
+
+  it("MDXのimportとJSXは説明に含めない", async () => {
+    const root = await createRoot({
+      "first.mdx": `---
+title: 記事
+---
+
+import Cover from "./Cover.svelte"
+
+<Cover src="./img/cover.png" />
+
+本文の説明です。
+`,
+    });
+
+    expect((await loadDocs(root))[0]?.description).toBe("本文の説明です。");
   });
 
   it("140文字を超える説明は打ち切って三点リーダーを付ける", async () => {
