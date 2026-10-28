@@ -13,6 +13,8 @@ import {
   loadDocs,
   loadSearchIndex,
   loadSearchPages,
+  usersDirectory,
+  usersDocument,
 } from "./src/utils/ssg/content";
 import { site } from "./src/config/site";
 import { tagRoutePath } from "./src/utils/search-path";
@@ -43,6 +45,8 @@ export default defineConfig(async ({ command, mode }) => {
       watch: [
         { path: contentDirectory, kind: "directory" },
         { path: aboutDocument, kind: "file" },
+        { path: usersDocument, kind: "file" },
+        { path: usersDirectory, kind: "directory" },
       ],
       manifest: async (ctx) => {
         const docs = [...(await loadDocs(ctx.root)), await loadAboutPage(ctx.root)];
@@ -53,10 +57,10 @@ export default defineConfig(async ({ command, mode }) => {
             documentPath: doc.documentPath,
             pagePath: doc.path,
           })),
-          extraAssets: docs.flatMap(({ thumbnail }) =>
-            thumbnail
-              ? [{ sourcePath: thumbnail.sourcePath, publicPath: thumbnail.publicPath }]
-              : [],
+          extraAssets: docs.flatMap(({ thumbnail, author }) =>
+            [thumbnail, author?.icon].flatMap((image) =>
+              image ? [{ sourcePath: image.sourcePath, publicPath: image.publicPath }] : [],
+            ),
           ),
         });
         if (result.diagnostics.length)
@@ -83,6 +87,8 @@ export default defineConfig(async ({ command, mode }) => {
       routeDependencies: [
         { path: contentDirectory, kind: "directory" },
         { path: aboutDocument, kind: "file" },
+        { path: usersDocument, kind: "file" },
+        { path: usersDirectory, kind: "directory" },
       ],
     },
     build: { enabled: mode !== "test", transformHtml: false },
