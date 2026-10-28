@@ -239,7 +239,10 @@ async function renderPage(
         width: 512,
         height: 512,
         type: "image/png",
-        alt: site.name,
+        // Article pages keep the article title as the alt even when they fall
+        // back to the site icon (no thumbnail); non-article pages use the site
+        // name. This keeps the card's alt describing the shared content.
+        alt: page.isPost ? page.title : site.name,
       };
   const metaTags = renderMetaTags({
     title,

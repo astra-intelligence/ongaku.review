@@ -31,24 +31,55 @@ const pngSize = (data: Buffer): { width: number; height: number } | undefined =>
   return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
 };
 
-const jpegSize = (data: Buffer): { width: number; height: number } | undefined => {
-  if (data.length < 4 || data[0] !== 0xff || data[1] !== 0xd8) return undefined;
-  let offset = 2;
-  while (offset + 9 < data.length) {
-    if (data[offset] !== 0xff) return undefined;
-    const marker = data[offset + 1];
-    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
-      offset += 2;
-      continue;
+/**
+ * Scans a JPEG file's marker segments incrementally until the SOF marker that
+ * carries the pixel dimensions. Unlike a fixed-size prefix read, this keeps
+ * working when an APP/EXIF segment extends past the first 64 bytes (common for
+ * camera/editor thumbnails), so valid JPEGs never lose their dimensions.
+ */
+const jpegSize = async (
+  filePath: string,
+): Promise<{ width: number; height: number } | undefined> => {
+  const handle = await open(filePath, "r");
+  try {
+    const readAt = async (position: number, length: number): Promise<Buffer | undefined> => {
+      const buffer = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buffer, 0, length, position);
+      return bytesRead === length ? buffer : undefined;
+    };
+    const header = await readAt(0, 2);
+    if (!header || header[0] !== 0xff || header[1] !== 0xd8) return undefined;
+    let offset = 2;
+    // Safety bound: a well-formed JPEG reaches its SOF marker well within 1 MiB.
+    const maxOffset = 1024 * 1024;
+    while (offset < maxOffset) {
+      const markerBuf = await readAt(offset, 2);
+      if (!markerBuf || markerBuf[0] !== 0xff) return undefined;
+      const marker = markerBuf[1];
+      if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
+        offset += 2;
+        continue;
+      }
+      const lengthBuf = await readAt(offset + 2, 2);
+      if (!lengthBuf) return undefined;
+      const length = lengthBuf.readUInt16BE(0);
+      if (
+        marker >= 0xc0 &&
+        marker <= 0xcf &&
+        marker !== 0xc4 &&
+        marker !== 0xc8 &&
+        marker !== 0xcc
+      ) {
+        const sof = await readAt(offset + 4, 5);
+        if (!sof) return undefined;
+        return { height: sof.readUInt16BE(1), width: sof.readUInt16BE(3) };
+      }
+      offset += 2 + length;
     }
-    const length = data.readUInt16BE(offset + 2);
-    if (offset + length + 2 > data.length) return undefined;
-    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-      return { height: data.readUInt16BE(offset + 5), width: data.readUInt16BE(offset + 7) };
-    }
-    offset += 2 + length;
+    return undefined;
+  } finally {
+    await handle.close();
   }
-  return undefined;
 };
 
 const webpSize = (data: Buffer): { width: number; height: number } | undefined => {
@@ -84,8 +115,11 @@ const webpSize = (data: Buffer): { width: number; height: number } | undefined =
 export async function readImageSize(filePath: string): Promise<ImageSize | undefined> {
   const type = mimeByExtension[path.extname(filePath).toLowerCase()];
   if (!type) return undefined;
+  if (type === "image/jpeg") {
+    const size = await jpegSize(filePath);
+    return size ? { ...size, type } : undefined;
+  }
   const data = await readPrefix(filePath, 64);
-  const size =
-    type === "image/png" ? pngSize(data) : type === "image/jpeg" ? jpegSize(data) : webpSize(data);
+  const size = type === "image/png" ? pngSize(data) : webpSize(data);
   return size ? { ...size, type } : undefined;
 }

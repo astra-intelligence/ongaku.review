@@ -438,7 +438,7 @@ test.describe("記事ページの構成", () => {
     );
     await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
       "content",
-      "ongaku.review",
+      "「アビイ・ロード」を2026年に聴く",
     );
     await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute("content", "512");
     await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute(

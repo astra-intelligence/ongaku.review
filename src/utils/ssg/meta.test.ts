@@ -75,6 +75,10 @@ describe("renderMetaTags", () => {
     expect(html).toContain('<meta property="og:image:height" content="512">');
     expect(html).toContain('<meta property="og:image:type" content="image/png">');
     expect(html).toContain('<meta property="og:image:alt" content="ongaku.review">');
+    expect(html).toContain(
+      '<meta name="twitter:image" content="https://ongaku.review/icon-512.png">',
+    );
+    expect(html).toContain('<meta name="twitter:image:alt" content="ongaku.review">');
     expect(html).toContain('<meta property="og:locale" content="ja_JP">');
     expect(html).not.toContain("article:published_time");
     expect(html).not.toContain("article:tag");
